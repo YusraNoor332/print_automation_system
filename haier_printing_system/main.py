@@ -15,56 +15,55 @@ from gui import QApplication, MainWindow, system_signals
 app = FastAPI(title="Haier Print Automation Listener")
 
 class ScanPayload(BaseModel):
-    printer_id: str
-    serial_barcode: str
+    printer_id: str  # This should be the MachineSerial from Haier_Machine
+    serial_barcode: str # This should be the ProductSku from Haier_Product
 
 @app.post("/scan")
 def handle_scan(payload: ScanPayload):
     """
     Ingress endpoint that receives physical scan payloads from the factory floor.
     """
-    printer_id = payload.printer_id
-    serial = payload.serial_barcode
+    machine_serial = payload.printer_id
+    product_sku = payload.serial_barcode
     
     # Alert GUI
-    system_signals.log_event.emit(f"[*] Received scan: {serial} from {printer_id}")
+    system_signals.log_event.emit(f"[*] Received scan: {product_sku} from Machine {machine_serial}")
     
-    # 1. Fetch from Database
-    product_data = db.get_product_details(serial)
-    if not product_data:
-        system_signals.log_event.emit(f"[!] Invalid serial: {serial} not found in database.")
-        db.log_scanned_item(serial, "FAILED_DB", printer_id)
-        raise HTTPException(status_code=404, detail="Serial not found")
+    # 1. Fetch Printer IP & Port dynamically from Database
+    machine_data = db.get_machine_details(machine_serial)
+    if not machine_data:
+        system_signals.log_event.emit(f"[!] Unknown Machine Serial: {machine_serial}")
+        raise HTTPException(status_code=400, detail="Unknown Machine Serial")
         
-    system_signals.log_event.emit(f"[+] DB Match: {product_data['Product_Name']} (${product_data['Price']})")
+    target_ip = machine_data['PrinterIp']
+    target_port = machine_data['PrinterPort']
     
-    # 2. Build Print Packet
+    # 2. Fetch Product from Database
+    product_data = db.get_product_details(product_sku)
+    if not product_data:
+        system_signals.log_event.emit(f"[!] Invalid SKU: {product_sku} not found in database.")
+        raise HTTPException(status_code=404, detail="SKU not found")
+        
+    system_signals.log_event.emit(f"[+] DB Match: {product_data['ProductName']} ({product_data['ProductPrice']})")
+    
+    # 3. Build Print Packet
     try:
         packet = build_print_packet(product_data)
     except Exception as e:
         system_signals.log_event.emit(f"[!] Packet generation failed: {e}")
-        db.log_scanned_item(serial, "FAILED_BUILD", printer_id)
         raise HTTPException(status_code=500, detail="Packet generation failed")
     
-    # 3. Dispatch to Hardware
-    target_ip = config.PRINTER_IP_MAP.get(printer_id)
-    if not target_ip:
-        system_signals.log_event.emit(f"[!] Unknown printer ID: {printer_id}")
-        db.log_scanned_item(serial, "FAILED_IP", printer_id)
-        raise HTTPException(status_code=400, detail="Unknown printer ID")
-        
-    success = send_to_printer(target_ip, packet)
+    # 4. Dispatch to Hardware
+    success = send_to_printer(target_ip, target_port, packet)
     
-    # 4. Log and Update GUI
+    # 5. Log and Update GUI
     if success:
-        system_signals.log_event.emit(f"[+] Printed successfully to {printer_id} ({target_ip})")
-        system_signals.printer_status.emit(printer_id, "ONLINE")
-        db.log_scanned_item(serial, "PRINTED", printer_id)
+        system_signals.log_event.emit(f"[+] Printed successfully to {target_ip}:{target_port}")
+        system_signals.printer_status.emit(machine_serial, "ONLINE")
         return {"status": "success"}
     else:
-        system_signals.log_event.emit(f"[!] Print transmission failed for {printer_id}")
-        system_signals.printer_status.emit(printer_id, "ERROR")
-        db.log_scanned_item(serial, "FAILED_PRINT", printer_id)
+        system_signals.log_event.emit(f"[!] Print transmission failed for {target_ip}:{target_port}")
+        system_signals.printer_status.emit(machine_serial, "ERROR")
         raise HTTPException(status_code=503, detail="Printer network failure")
 
 def run_fastapi():

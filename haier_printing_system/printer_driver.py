@@ -3,12 +3,11 @@
 import socket
 import config
 
-def send_to_printer(ip_address: str, packet: bytes) -> bool:
+def send_to_printer(ip_address: str, port: int, packet: bytes) -> bool:
     """
     Opens a high-speed TCP socket stream to the printer hardware,
     transmits the byte packet, and closes immediately to free the channel.
     """
-    port = config.PRINTER_PORT
     timeout = config.SOCKET_TIMEOUT
     
     try:
@@ -17,7 +16,7 @@ def send_to_printer(ip_address: str, packet: bytes) -> bool:
             # Enforce strict socket timeouts to prevent factory line stalling
             sock.settimeout(timeout)
             
-            # Connect directly to the printer's static IP on port 9100
+            # Connect directly to the printer's static IP and port
             sock.connect((ip_address, port))
             
             # Stream the compiled byte array into the hardware print buffer

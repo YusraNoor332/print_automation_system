@@ -18,9 +18,9 @@ def build_print_packet(product_data: dict) -> bytes:
     if not product_data:
         raise ValueError("No product data provided")
         
-    product_name = product_data.get("Product_Name", "UNKNOWN")
-    price = product_data.get("Price", 0.0)
-    qc_status = product_data.get("QC_Status", "PENDING")
+    product_name = product_data.get("ProductName", "UNKNOWN")
+    price = product_data.get("ProductPrice", "0.00")
+    qc_status = product_data.get("ProductStatus", "active")
     
     # Coordinate Geometry Mapping (X, Y)
     # Line 1: Product Name at (10, 10) with font size 12
@@ -29,8 +29,8 @@ def build_print_packet(product_data: dict) -> bytes:
     
     lines = [
         f'10,10,12,"{product_name}"',
-        f'10,50,14,"${price:.2f}"',
-        f'10,90,16,"QC:{qc_status}"'
+        f'10,50,14,"{price}"',
+        f'10,90,16,"STATUS:{qc_status}"'
     ]
     
     # Construct the payload
