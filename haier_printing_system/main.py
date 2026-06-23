@@ -8,8 +8,7 @@ from pydantic import BaseModel
 
 import config
 from database import db
-from packet_builder import build_print_packet
-from printer_driver import send_to_printer
+from printer_driver import send_to_printer_sdk
 from gui import QApplication, MainWindow, system_signals
 
 app = FastAPI(title="Haier Print Automation Listener")
@@ -36,7 +35,7 @@ def handle_scan(payload: ScanPayload):
         raise HTTPException(status_code=400, detail="Unknown Machine Serial")
         
     target_ip = machine_data['PrinterIp']
-    target_port = machine_data['PrinterPort']
+    # target_port = machine_data['PrinterPort'] # SDK handles port internally or we don't need it
     
     # 2. Fetch Product from Database
     product_data = db.get_product_details(product_sku)
@@ -46,25 +45,25 @@ def handle_scan(payload: ScanPayload):
         
     system_signals.log_event.emit(f"[+] DB Match: {product_data['ProductName']} ({product_data['ProductPrice']})")
     
-    # 3. Build Print Packet
-    try:
-        packet = build_print_packet(product_data)
-    except Exception as e:
-        system_signals.log_event.emit(f"[!] Packet generation failed: {e}")
-        raise HTTPException(status_code=500, detail="Packet generation failed")
-    
-    # 4. Dispatch to Hardware
-    success = send_to_printer(target_ip, target_port, packet)
+    # --- UPDATED INTEGRATION FOR STEP 3 & 4 ---
+    # Call the SDK driver directly using parsed fields from the database row
+    success = send_to_printer_sdk(
+        ip_address=target_ip,
+        product_name=product_data["ProductName"],
+        price=product_data["ProductPrice"],
+        qc_status=product_data["ProductStatus"]
+    )
+    # ------------------------------------------
     
     # 5. Log and Update GUI
     if success:
-        system_signals.log_event.emit(f"[+] Printed successfully to {target_ip}:{target_port}")
+        system_signals.log_event.emit(f"[+] Printed successfully to {target_ip} via SDK")
         system_signals.printer_status.emit(machine_serial, "ONLINE")
         return {"status": "success"}
     else:
-        system_signals.log_event.emit(f"[!] Print transmission failed for {target_ip}:{target_port}")
+        system_signals.log_event.emit(f"[!] Print transmission failed for {target_ip} via SDK")
         system_signals.printer_status.emit(machine_serial, "ERROR")
-        raise HTTPException(status_code=503, detail="Printer network failure")
+        raise HTTPException(status_code=503, detail="Printer network/SDK failure")
 
 def run_fastapi():
     """Runs the FastAPI server in a background thread."""

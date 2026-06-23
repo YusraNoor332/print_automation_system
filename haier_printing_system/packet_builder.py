@@ -1,19 +1,15 @@
 # packet_builder.py
 """Phase 2: Translation script formatting variables into Sojet byte strings."""
 
-# Hypothetical Sojet Command Syntax Mapping:
-# STX (0x02)
-# CMD: PRT (Print)
-# FORMAT: X, Y, FONT_SIZE, "TEXT"
-# ETX (0x03)
-
+# Control Characters
 STX = b'\x02'
 ETX = b'\x03'
 
 def build_print_packet(product_data: dict) -> bytes:
     """
-    Translates product data into a low-level Sojet byte array containing
-    exact coordinate geometry and syntax tokens.
+    Translates product data into a low-level network packet.
+    Instead of hardcoding physical X/Y coordinates, this maps our database
+    values directly to the "Dynamic Text" Variable IDs configured on the printer UI.
     """
     if not product_data:
         raise ValueError("No product data provided")
@@ -22,22 +18,25 @@ def build_print_packet(product_data: dict) -> bytes:
     price = product_data.get("ProductPrice", "0.00")
     qc_status = product_data.get("ProductStatus", "active")
     
-    # Coordinate Geometry Mapping (X, Y)
-    # Line 1: Product Name at (10, 10) with font size 12
-    # Line 2: Price at (10, 50) with font size 14
-    # Line 3: QC Status at (10, 90) with font size 16
+    # Map our data to the Printer's Dynamic Variable IDs:
+    # var1(ID:1) = Product Name
+    # var2(ID:2) = Price
+    # var3(ID:3) = QC Status
     
-    lines = [
-        f'10,10,12,"{product_name}"',
-        f'10,50,14,"{price}"',
-        f'10,90,16,"STATUS:{qc_status}"'
+    # Typical industrial variable payload format (e.g. ID|Value)
+    # Note: If your specific printer requires a different delimiter (like commas or semicolons),
+    # you can easily adjust this list!
+    variables = [
+        f'1|{product_name}',
+        f'2|{price}',
+        f'3|STATUS:{qc_status}'
     ]
     
     # Construct the payload
-    # Example format: PRT|10,10,12,"Name"|10,50,14,"$599.99"|...
-    payload_str = "PRT|" + "|".join(lines)
+    # Example format: UPDATE|1|HRF-186EBS|2|Rs.54000|3|STATUS:active
+    payload_str = "UPDATE|" + "|".join(variables)
     
-    # Encode to bytes and wrap with control characters
+    # Encode to bytes and wrap with control characters so the printer knows when the message starts and ends
     packet = STX + payload_str.encode('utf-8') + ETX
     
     return packet

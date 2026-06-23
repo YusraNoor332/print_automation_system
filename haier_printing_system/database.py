@@ -5,6 +5,8 @@ from contextlib import contextmanager
 from typing import Dict, Any, Optional
 import config
 
+MOCK_MODE = False
+
 class DatabaseManager:
     def __init__(self):
         self.conn_string = config.MSSQL_CONN_STRING
@@ -38,11 +40,23 @@ class DatabaseManager:
 
     def get_machine_details(self, machine_serial: str) -> Optional[Dict[str, Any]]:
         """
-        Retrieves scanner and printer IPs from the Haier_Machine table in SSMS.
+        Retrieves scanner and printer IPs from the Haier_Machine table.
+        Assumes the incoming scanner request 'printer_id' is the MachineSerial.
         """
+        if MOCK_MODE:
+            if machine_serial == "740307":
+                return {
+                    "PrinterIp": "192.168.0.124",
+                    "PrinterPort": 18107
+                }
+            # Fallback for old mock testing
+            return {
+                "PrinterIp": "127.0.0.1",
+                "PrinterPort": 9100
+            }
         query = """
             SELECT PrinterIp, PrinterPort
-            FROM Haier_Machine
+            FROM dbo.Haier_Machine
             WHERE MachineSerial = ? AND MachineStatus = 'active'
         """
         try:
@@ -64,9 +78,18 @@ class DatabaseManager:
         """
         Retrieves product parameters based on the scanned serial barcode (ProductSku) from SSMS.
         """
+        if MOCK_MODE:
+            if serial_barcode == "HRF-186EBS":
+                return {
+                    "ProductName": "HRF-186EBS",
+                    "ProductPrice": "Rs.54,000",
+                    "ProductStatus": "active"
+                }
+            return None
+
         query = """
             SELECT ProductName, ProductPrice, ProductStatus
-            FROM Haier_Product
+            FROM dbo.Haier_Product
             WHERE ProductSku = ? AND ProductStatus = 'active'
         """
         try:

@@ -5,7 +5,7 @@ import os
 # --- MSSQL Database Configuration ---
 # If your SSMS server has a specific instance name (e.g., DESKTOP-XXXXX\SQLEXPRESS), 
 # change "localhost" to that exact server name string.
-DB_SERVER = os.getenv("DB_SERVER", "localhost")
+DB_SERVER = os.getenv("DB_SERVER", "localhost\SQLEXPRESS")
 DB_NAME = os.getenv("DB_NAME", "DBHaierApp")
 DB_DRIVER = os.getenv("DB_DRIVER", "{ODBC Driver 17 for SQL Server}")
 
