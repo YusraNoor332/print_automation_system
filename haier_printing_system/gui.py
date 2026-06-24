@@ -39,7 +39,7 @@ class MainWindow(QMainWindow):
         status_layout = QHBoxLayout()
         
         self.status_labels = {}
-        for printer_id in ["LINE_1_PRINTER_A", "LINE_1_PRINTER_B"]:
+        for printer_id in ["740307"]:
             lbl = QLabel(f"{printer_id}: OFFLINE")
             lbl.setStyleSheet("color: white; background-color: gray; padding: 5px; border-radius: 3px;")
             lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)

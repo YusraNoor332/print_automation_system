@@ -38,4 +38,4 @@ SOCKET_TIMEOUT = 3.0  # Seconds to wait before dropping a frozen connection
 
 # --- System Configuration ---
 API_HOST = "0.0.0.0"  # Allows devices on the local Wi-Fi subnet to send scan payloads
-API_PORT = 8000
+API_PORT = 8443

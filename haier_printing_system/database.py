@@ -41,14 +41,15 @@ class DatabaseManager:
     def get_machine_details(self, machine_serial: str) -> Optional[Dict[str, Any]]:
         """
         Retrieves scanner and printer IPs from the Haier_Machine table.
-        Assumes the incoming scanner request 'printer_id' is the MachineSerial.
         """
+        # TEMPORARY FIX: Always override the IP for this machine until SQL is updated!
+        if machine_serial == "740307":
+            return {
+                "PrinterIp": "192.168.137.200",
+                "PrinterPort": 9944
+            }
+            
         if MOCK_MODE:
-            if machine_serial == "740307":
-                return {
-                    "PrinterIp": "192.168.0.124",
-                    "PrinterPort": 18107
-                }
             # Fallback for old mock testing
             return {
                 "PrinterIp": "127.0.0.1",
@@ -76,21 +77,28 @@ class DatabaseManager:
 
     def get_product_details(self, serial_barcode: str) -> Optional[Dict[str, Any]]:
         """
-        Retrieves product parameters based on the scanned serial barcode (ProductSku) from SSMS.
+        Retrieves product parameters based on the scanned barcode (ProductCode) from SSMS.
+        The physical barcode on the label maps to the ProductCode column, e.g. 'BS0BLGE00'.
         """
         if MOCK_MODE:
-            if serial_barcode == "HRF-186EBS":
-                return {
+            mock_products = {
+                "HRF-186EBS": {
                     "ProductName": "HRF-186EBS",
                     "ProductPrice": "Rs.54,000",
                     "ProductStatus": "active"
+                },
+                "BS0BLGE00": {
+                    "ProductName": "Haier Custom Unit",
+                    "ProductPrice": "999.00",
+                    "ProductStatus": "Passed"
                 }
-            return None
+            }
+            return mock_products.get(serial_barcode)
 
         query = """
             SELECT ProductName, ProductPrice, ProductStatus
             FROM dbo.Haier_Product
-            WHERE ProductSku = ? AND ProductStatus = 'active'
+            WHERE ProductCode = ? AND ProductStatus = 'active'
         """
         try:
             with self.get_connection() as conn:
